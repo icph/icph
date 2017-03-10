@@ -8,7 +8,7 @@ install_systemd:
 	cp ./service/iot-dev-hub.service /etc/systemd/system
 
 uninstall_systemd: 
-	rm $(DESTDIR)$(PREFIX)/etc/systemd/system/iot-dev-hub.service	
+	rm -f $(DESTDIR)$(PREFIX)/etc/systemd/system/iot-dev-hub.service	
 
 uninstall: uninstall_systemd
 	rm -fr $(DESTDIR)$(PREFIX)/www-repo-gui
