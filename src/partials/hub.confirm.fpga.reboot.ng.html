@@ -1,0 +1,31 @@
+<!-- FPGA Reboot STEP 1-->
+<div class="admin-step">
+  <div class="row">
+    <div class="col-md-12" ng-show="fpgaValidateInput()">
+      <h1>Generating Soft SoC Request</h1>
+    </div>
+    <div class="col-md-12" ng-show="!fpgaValidateInput()">
+      <h1>Soft SoC Error</h1>
+    </div>
+  </div><!-- /.row -->
+  <div class="row">
+    <div class="col-md-12 description" ng-show="fpgaValidateInput()">
+      Clicking "Continue" will build the FPGA image, reboot, and install it on to your platform.
+    </div>
+    <div class="col-md-12 description" ng-show="!fpgaValidateInput()">
+      You have selected a configuration that is not supported. Please consult your Intel representative for further information.
+    </div>
+  </div><!-- .row -->
+  <div class="row admin-modal-btn-row">
+    <div class="col-md-6">
+      <div class="cancel-button-md admin-modal-btn" ng-click="cancelFPGA()">Cancel</div>
+    </div>
+    <div class="col-md-6">
+      <div class="blue-button-md admin-modal-btn" ng-class="{'disabled': !fpgaValidateInput()}" ng-click="continueFPGA()">Continue</div>
+    </div>
+  </div><!-- .row -->
+</div><!-- /.admin-step -->
+
+
+
+

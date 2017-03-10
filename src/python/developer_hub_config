@@ -1,0 +1,38 @@
+[General]
+# Option validation to be determined at build time
+
+# valid options: default, synergy
+target_platform = synergy
+
+# valid options: enabled, disabled
+sensor_tab = disabled
+ref_sw_tab = enabled
+package_tab = enabled
+admin_tab = enabled
+documentation_tab = enabled
+
+# FPGA Options
+softsoc_tab = enabled
+fpga_repo = /opt/intel/fpga_examples/
+fpga_deploy = /boot/
+
+# valid options: sensors, referencesoftware, packages, admin, documentation
+default_tab = referencesoftware
+
+[DefaultRepo]
+base_repo = http://jfslabigs.jf.intel.com/iotgateway/synergy/yocto
+
+[HDC]
+config = False
+
+[ProRepo]
+enable_pro = False
+baytrail = https://windshare.windriver.com/remote.php/webdav/WR-IDP-3-XT-Intel-Baytrail-pro-repo/directory.xml
+quark = https://windshare.windriver.com/remote.php/webdav/WR-IDP-3-XT-Intel-Quark-pro-repo/directory.xml
+
+[BaseRepo]
+baytrail = https://distro.windriver.com/release/idp-3-xt/public_feeds/WR-IDP-3-XT-Intel-Baytrail-public-repo/directory.xml
+quark = https://distro.windriver.com/release/idp-3-xt/public_feeds/WR-IDP-3-XT-Intel-Quark-public-repo/directory.xml
+
+[SecurityAutomation]
+secure_http = False

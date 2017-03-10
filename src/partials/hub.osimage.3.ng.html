@@ -1,0 +1,78 @@
+ <!-- CREATE IMAGE STEP 4-->
+<div class="admin-step">
+    <div class="create-img-progress-bar">
+        <div class="create-img-step">
+            <div class="create-img-step-number">1</div>
+            <div class="create-img-step-text">Save OS Image:<br/>Insert USB Flash Drive</div>
+        </div>
+        <div class="create-img-step">
+            <div class="create-img-step-number">2</div>
+            <div class="create-img-step-text">Save OS Image:<br/>Select USB Flash Drive</div>
+        </div>
+        <div class="create-img-step active">
+            <div class="create-img-step-number">3</div>
+            <div class="create-img-step-text">Save OS Image:<br/>Review Configuration</div>
+        </div>
+        <div class="create-img-step">
+            <div class="create-img-step-number">4</div>
+            <div class="create-img-step-text">Save OS Image:<br/>Write OS Image to USB Flash Drive</div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Save OS Image: Review configuration</h1>
+        </div>
+    </div><!-- /.row -->
+    <div class="row">
+        <div class="col-md-9 description">
+            <br/>
+            <br/>
+            Security policies will be applied to a hardened OS image. After deployment of the OS image onto another gateway be sure to test your IoT application thoroughly to ensure correct operation.
+            <br/>
+            <a href="https://software.intel.com/GatewaySecurity-BestPractices" target="security">Read Security Best Practices</a>
+        </div>
+        <div class="col-md-3">
+            <div class="save-image create-image-img"></div>
+        </div>
+    </div><!-- .row -->
+    <div class="save-image-description">
+        <label class="input-control input-control-radio">Standard Security
+            <input type="radio" ng-model="selection.type" value="standard"/>
+            <div class="input-control-indicator"></div>
+        </label>
+        <br>
+        <div class="content">
+            The hardened OS image will be configured to:
+            <ol class="no-indent-ol left">
+                <li>Enable McAfee&reg; Embedded Control dynamic whitelisting and controlled file system access.</li>
+                <li>Limited SSH access (<a href="https://software.intel.com/GatewaySecurity-BestPractices" target="security">Read Security Best Practices</a>).</li>
+                <li>Remove software development tools and the Intel® IoT Gateway Developer Hub.</li>
+                <li>Disable any new Linux accounts. Only the 3 default accounts(root, gwuser, wra) will be active.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="save-image-description save-image-description-last" ng-hide="parseVersion()">
+        <label class="input-control input-control-radio">Custom Security
+            <input type="radio" ng-model="selection.type" value="custom"/>
+            <div class="input-control-indicator"></div>
+        </label>
+        <br>
+        <div class="content">
+            The hardened OS image can be configured by following these steps:
+            <ol class="no-indent-ol left">
+                <li>Select packages to be removed from the deployable image.</li>
+                <li>Add MEC Updaters to be made available on the deployable image.</li>
+                <li>Choose the accounts that will have access on the deployable image.</li>
+                <!--<li>Set up file system hardening options.</li>-->
+            </ol>
+        </div>
+    </div>
+    <div class="row admin-modal-btn-row">
+        <div class="col-md-6">
+            <div class="cancel-button-md admin-modal-btn" ng-click="closeOSImageModal3()">Cancel</div>
+        </div>
+        <div class="col-md-6">
+            <div class="blue-button-md admin-modal-btn" ng-click="continueOSImage3()" ng-class="{disabled: !connected}">Continue</div>
+        </div>
+    </div><!-- .row -->
+</div><!-- /.admin-step -->

@@ -1,0 +1,108 @@
+<div class="row main softsoc-body">
+  <div class="detail">
+
+    <!-- Main Content Left-->
+        <div class="col-md-8 col-md-offset-2">
+          <div class="iot-panel">
+			<div class="row">
+              <div class="col-md-6">
+            <h1 class="panel-header">Soft SOC</h1>
+            </div>
+
+            </div>
+
+            <div class="row">
+              <div class="col-md-12">
+                <div class="iot-gateway-ss">
+                  <span>You can create additional I/Os on the FPGA in order to extend the current IA processor configuration </span>
+                </div>
+              </div>
+            </div><!-- /.row -->
+
+              <div class="detail">
+                  <div class="iot-panel-int-txt col-sm-2">
+                    Enable
+                </div>
+                  <div class="iot-panel-int-txt col-sm-2">
+                    Successfully Enabled
+                </div>
+                  <div class="iot-panel-int-txt col-sm-4">
+                    I/O Option
+                </div>
+                <div class="iot-panel-int-txt col-sm-2">
+                    Description
+                </div>
+                <div class="clearfix"></div>
+              </div>
+
+              <div class="detail" ng-repeat="option in fpga_options track by $index">
+                <div class="col-sm-1">
+                      <input type="checkbox" ng-model="checkbox.enabled" ng-click="setFPGAOption(option,checkbox.enabled)">
+                </div>
+                  <div class="col-sm-3">
+                    <img src="/images/checkmark.svg" class="checkmark-blue" ng-if="isFPGAImageInstalled(option)">
+                  </div>
+                  <div class="iot-panel-int-txt col-sm-3">
+                    {{option}}
+                </div>
+                <div class="iot-panel-int-txt col-sm-4" ng-repeat="object in option_descriptions" ng-if="object[option]">
+                  {{option_descriptions[$index][option]["description"]}}
+                </div>
+                <div class="clearfix"></div>
+              </div>
+
+            <div class="row">
+              <!-- <div class="iot-panel-int-txt col-sm-2 updates-upgrades"> -->
+                <div class="blue-button-md install-os-updates col-md-offset-5 col-sm-2" ng-click="fpgaBuildAndReboot()">
+                    <span>Build and Install</span>
+                    <img src="/images/white-update.svg" style="width: 1.2rem; height: 1.2rem; display: inline-block; margin-bottom: .2rem;">
+                </div>
+              <!-- </div> -->
+            </div>
+
+           <!-- <div class="detail" ng-repeat="package in installed" ng-if="package.vertical == 'softsoc'">
+                <div class="col-sm-2">
+                      <input type="checkbox" ng-model="checkbox.enabled" ng-click="setFPGAPackage(package)">
+                </div>
+                  <div class="col-sm-2">
+                    <img src="/images/checkmark.svg" class="checkmark-blue" ng-if="package.installed">
+                  </div>
+                  <div class="iot-panel-int-txt col-sm-4">
+                    {{package.title}}
+                </div>
+                <div class="clearfix"></div>
+              </div>
+
+              <div class="detail" ng-repeat="package in available" ng-if="package.vertical == 'softsoc'">
+                <div class="col-sm-2">
+                      <input type="checkbox" ng-model="checkbox.enabled" ng-click="setFPGAPackage(package)">
+                </div>
+                  <div class="col-sm-2">
+                    <img src="/images/checkmark.svg" class="checkmark-blue" ng-if="package.installed">
+                  </div>
+                  <div class="iot-panel-int-txt col-sm-4">
+                    {{package.title}}
+                </div>
+                <div class="clearfix"></div>
+              </div> -->
+
+              <!-- <div class="detail">
+                <div class="col-sm-2">
+                  <div class="blue-button-sm" ng-click="confirmInstallFPGAImageWithFilePicker()">
+                    <div> Local File Upload</div>
+                  </div>
+                </div>
+                  <div class="col-sm-2">
+                    <img src="/images/checkmark.svg" class="checkmark-blue" ng-if="package.installed">
+                  </div>
+                <div class="iot-panel-int-txt col-sm-2">
+                    Custom
+                </div>
+                <div class="clearfix"></div>
+              </div> -->
+            </div>
+        </div><!-- /.col-md-12 -->
+
+  </div>
+
+</div>

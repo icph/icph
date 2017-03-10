@@ -1,0 +1,42 @@
+[
+                {
+                    "community_tooltip": "Ask questions and share learnings on the Intel® IoT Developer Zone.",
+                    "community_link": "https://communities.intel.com/community/tech/iot-gateway",
+                    "github_tooltip": "Browse a collection of sensor recipes and code samples for Intel® IoT Gateway Technology.",
+                    "github_link": "https://github.com/intel-iot-devkit/Intel-IoT-Gateway",
+                    "title": "Using Intel® IoT Gateway Admin Settings",
+                    "description": "Helpful guide for using the Intel® Gateway Admin Settings tool.",
+                    "link": "https://software.intel.com/en-us/AdminGateway-LuCI",
+                    "identifier": "opencl"
+                },
+                {
+                    "community_tooltip": "Ask questions and share learnings on the Intel® IoT Developer Zone.",
+                    "community_link": "https://communities.intel.com/community/tech/iot-gateway",
+                    "github_tooltip": "Browse a collection of sensor recipes and code samples for Intel® IoT Gateway Technology.",
+                    "github_link": "https://github.com/intel-iot-devkit/Intel-IoT-Gateway",
+                    "title": "Using Intel® IoT Gateway Admin Settings",
+                    "description": "Helpful guide for using the Intel® Gateway Admin Settings tool.",
+                    "link": "https://software.intel.com/en-us/AdminGateway-LuCI",
+                    "identifier": "computer-vision"
+                },
+                {
+                    "community_tooltip": "Ask questions and share learnings on the Intel® IoT Developer Zone.",
+                    "community_link": "https://communities.intel.com/community/tech/iot-gateway",
+                    "github_tooltip": "Browse a collection of sensor recipes and code samples for Intel® IoT Gateway Technology.",
+                    "github_link": "https://github.com/intel-iot-devkit/Intel-IoT-Gateway",
+                    "title": "Using Intel® IoT Gateway Admin Settings",
+                    "description": "Helpful guide for using the Intel® Gateway Admin Settings tool.",
+                    "link": "https://software.intel.com/en-us/AdminGateway-LuCI",
+                    "identifier": "software-offload"
+                },
+                {
+                    "community_tooltip": "Ask questions and share learnings on the Intel® IoT Developer Zone.",
+                    "community_link": "https://communities.intel.com/community/tech/iot-gateway",
+                    "github_tooltip": "Browse a collection of sensor recipes and code samples for Intel® IoT Gateway Technology.",
+                    "github_link": "https://github.com/intel-iot-devkit/Intel-IoT-Gateway",
+                    "title": "Using Intel® IoT Gateway Admin Settings",
+                    "description": "Helpful guide for using the Intel® Gateway Admin Settings tool.",
+                    "link": "https://software.intel.com/en-us/AdminGateway-LuCI",
+                    "identifier": "other"
+                },
+]

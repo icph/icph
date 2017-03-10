@@ -1,0 +1,67 @@
+[
+                {
+                    "title": "Setup a sensor in Node-Red",
+                    "description": "How to setup an IoT Sensor using Node-Red",
+                    "video_link": "https://software.intel.com/en-us/videos/iot-dev-hub-setup-sensor-in-node-red",
+                    "tutorial_html": "tutorial.sensorsetup",
+                    "location": "left"
+                },
+                {
+                    "title": "Connect sensor output to cloud in Node-Red",
+                    "description": "Building upon 1st tutorial, learn how to push Sensor data into Cloud Node-Red then display the result within the Intel® IoT Gateway Developer Hub charts.",
+                    "video_link": "https://software.intel.com/en-us/videos/iot-dev-hub-sensor-output-to-cloud-in-node-red",
+                    "tutorial_html": "tutorial.sensorcloud",
+                    "location": "left"
+                },
+                {
+                    "title": "Learn to use Wind River® Helix™ App Cloud ",
+                    "description": "Create a Hello World app using a cloud development environment to build IoT apps and deploy onto the gateway.",
+                    "video_link": "https://software.intel.com/en-us/videos/iot-dev-hub-use-helix-app-cloud",
+                    "tutorial_html": "tutorial.helixapp",
+                    "location": "left"
+                },
+                {
+                    "title": "Save and Deploy OS Image",
+                    "description": "Learn how to save gateway OS and apps for deployment onto another gateway.",
+                    "video_link": "https://software.intel.com/en-us/videos/iot-dev-hub-save-and-deploy-os-image",
+                    "tutorial_html": "tutorial.savedeploy",
+                    "location": "left"
+                },
+                {
+                    "community_tooltip": "Ask questions and share learnings on the Intel® IoT Developer Zone.",
+                    "community_link": "https://communities.intel.com/community/tech/iot-gateway",
+                    "github_tooltip": "Browse a collection of sensor recipes and code samples for Intel® IoT Gateway Technology.",
+                    "github_link": "https://github.com/intel-iot-devkit/Intel-IoT-Gateway",
+                    "location": "right_top"
+                },
+                {
+                    "title": "Using Intel® IoT Gateway Admin Settings",
+                    "description": "Helpful guide for using the Intel® Gateway Admin Settings tool.",
+                    "link": "https://software.intel.com/en-us/AdminGateway-LuCI",
+                    "location": "right_bottom"
+                },
+                {
+                    "title": "Security Best Practices",
+                    "description": "Tips and Best Practices for running your Development Gateway more securely, and for hardening your gateway image prior to deployment.",
+                    "link": "https://software.intel.com/GatewaySecurity-BestPractices",
+                    "location": "right_bottom"
+                },
+                {
+                    "title": "Explore Intel IoT",
+                    "description": "Information on pre-integrated gateway kits.",
+                    "link": "https://software.intel.com/en-us/iot/hardware/gateways",
+                    "location": "right_bottom"
+                },
+                {
+                    "title": "IoT Developer Zone",
+                    "description": "Guides, downloads, dev kits, support, and more.",
+                    "link": "https://software.intel.com/en-us/iot",
+                    "location": "right_bottom"
+                },
+                {
+                    "title": "Solution Briefs",
+                    "description": "A selection of articles on IoT and related topics.",
+                    "link": "https://www-ssl.intel.com/content/www/us/en/embedded/solutions/iot-gateway/software-building-blocks.html",
+                    "location": "right_bottom"
+                }
+]

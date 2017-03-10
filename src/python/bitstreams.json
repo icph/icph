@@ -1,0 +1,47 @@
+{ "bitstreams" : 
+		[{
+                    "title": "Bitstream 1",
+                    "name": "fpga-io-gpio",
+                    "GPIO": 1,
+                    "CAN": 1,
+                    "TSE": 4,
+                    "NIOS": 0,
+                    "Hash": "97e78aed908f5b22479f2482492aee86"
+                },
+                {
+                    "title": "Bitstream 2",
+                    "name": "fpga-io-can",
+                    "GPIO": 1,
+                    "CAN": 1,
+                    "TSE": 1,
+                    "NIOS": 1,
+                    "Hash": "5ddf87f3478c8716c82b9121fe20e8e4"
+                },
+                {
+                    "title": "Bitstream 3",
+                    "name": "fpga-io-littletitan",
+                    "GPIO": 1,
+                    "CAN": 0,
+                    "TSE": 1,
+                    "NIOS": 1,
+                    "Hash": "f980bbd652a04b87e6a52a238983a189"
+                },
+                {
+                    "title": "Bitstream 4",
+                    "name": "fpga-io-gbe",
+                    "GPIO": 1,
+                    "CAN": 1,
+                    "TSE": 0,
+                    "NIOS": 1,
+                    "Hash": "9f0dfdad20e5b889d3735123d184cf89"
+                }],
+ "descriptions":
+		[{ "GPIO" : { "description" :"Enable additional control of LED states and input values from switches" }
+		},
+		{ "CAN" : { "description" :"Enable Controller Area Bus (CAN-FD version)" }
+		},
+		{ "TSE" : { "description" :"Enable additional triple speed Ethernet ports / 1000BASE-T on the FPGA" }
+		},
+		{ "NIOS" : { "description" :"Enable a NIOS...& offload applications to the FPGA - an additional Soft CPU to offload a workload" }
+		}]
+}

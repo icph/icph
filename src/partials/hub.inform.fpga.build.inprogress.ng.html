@@ -1,0 +1,11 @@
+<div class="admin-step">
+    <div class="progress-bar-block">
+        <div class="blue-modal-text">{{bar_before_message}}</div>
+        <div class="progress-bar-iot">
+            <div class="progress-bar-indicator progress-bar progress-bar-striped active" role="progressbar" style="width: 100%;"></div>
+        </div>
+        <div ng-if="bar_after_message" class="post-activity-msg">{{bar_after_message}}</div>
+        <div ng-if="error_message" class="post-activity-msg" style="color: red">{{error_message}}</div>
+        <button ng-if="show_close_button" ng-action="closeModal()">close</button> <!-- need this if reset fails -->
+    </div>
+</div><!-- /.admin-step -->
