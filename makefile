@@ -5,10 +5,10 @@ install: install_systemd
 	rsync -rupE ./src $(DESTDIR)$(PREFIX)/www-repo-gui
 
 install_systemd:
-	rsync -rupE ./service $(DESTDIR)$(PREFIX)/etc/systemd/system
+	rsync -rupE ./service $(DESTDIR)/etc/systemd/system
 
 uninstall_systemd: 
-	rm -f $(DESTDIR)$(PREFIX)/etc/systemd/system/iot-dev-hub.service	
+	rm -f $(DESTDIR)/etc/systemd/system/iot-dev-hub.service	
 
 uninstall: uninstall_systemd
 	rm -fr $(DESTDIR)$(PREFIX)/www-repo-gui
