@@ -16,3 +16,6 @@ uninstall_systemd:
 
 uninstall: uninstall_systemd
 	rm -fr $(DESTDIR)$(PREFIX)/www-repo-gui
+
+clean: uninstall_systemd
+	rm -fr $(DESTDIR)$(PREFIX)/www-repo-gui
