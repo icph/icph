@@ -2,7 +2,7 @@ MAKEFILEPREFIX = /var/www
 
 install: install_systemd 
 	mkdir -p $(DESTDIR)$(PREFIX)/www-repo-gui
-	rsync -rupE ./src $(DESTDIR)$(PREFIX)/www-repo-gui
+	rsync -rupE ./src/* $(DESTDIR)$(PREFIX)/www-repo-gui
 
 install_systemd:
 	mkdir -p $(DESTDIR)/etc/systemd/system
