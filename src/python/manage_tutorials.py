@@ -57,15 +57,28 @@ class TUTORIALS(object):
         if result['returncode'] == 0:
             os.rename(file_path, bk_file)
             shutil.copy(local_path, file_path)
+
+
+    def get_config_file(self,request_loc):
+        file_path = "/var/www/www-repo-gui/config/{}.config.json".format(request_loc);
+        result = None
+
+        if os.path.isfile(file_path):
+            with open(file_path) as data_file:
+                result = {'result_code': 0, 'data': json.load(data_file)}
+        else:
+            result = {'result_code': 1, 'data': "File not found"}
+
+        return result
         
     
-#@require()
+@require()
 class Tutorials(object):
     exposed = True
 
     def GET(self, **kwargs):
         t = TUTORIALS()
-        tut = t.get(kwargs['update'])
+        tut = t.get_config_file(kwargs['conf'])
         return json.dumps(tut)
 
 

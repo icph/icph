@@ -1,0 +1,62 @@
+[
+  {
+    "id":"admin-option-connectivity-tools",
+    "name":"Connectivity Tools",
+    "groups": [
+      {
+        "name": "",
+        "options": [
+          {
+            "name": "Configure Proxy",
+            "htmlLink":"/partials/hub.change.password.ng.html",
+            "javascriptFunction":"configureProxy",
+            "displayType":"popup"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id":"admin-option-security-tools",
+    "name": "Security Tools",
+    "groups": [
+      {
+        "name": "",
+        "options": [
+          {
+            "name": "Enable https",
+            "javascriptFunction":"enableHttps",
+            "displayType":"popup"
+          },
+          {
+            "name": "Change Password",
+            "htmlLink":"/partials/hub.change.password.ng.html",
+            "javascriptFunction":"changePassword",
+            "displayType":"shift"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id":"admin-option-developer-tools",
+    "name": "Developer Tools",
+    "groups": [
+      {
+        "name": "",
+        "options": [
+          {
+            "name": "Launch Manager",
+            "javascriptFunction":"launchLaunchManager",
+            "displayType":"popup"
+          },
+          {
+            "name": "Restart OS",
+            "javascriptFunction":"confirmRestartOS",
+            "displayType":"popup"
+          }
+        ]
+      }
+    ]
+  }
+]

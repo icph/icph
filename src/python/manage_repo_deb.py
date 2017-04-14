@@ -14,6 +14,7 @@ import ast
 from tools import logging_helper, network_ops, shell_ops, sysinfo_ops
 import manage_config
 import manage_package
+import manage_package_deb
 import manage_worker
 from manage_auth import require
 
@@ -104,6 +105,7 @@ class RepoTracking(object):
         """
         log_helper = logging_helper.logging_helper.Logger()
         return_list = []
+        repo_dict = {}
         try:
             if os.path.exists(manage_config.repo_tracking_file):
                 # read all lines first
@@ -114,6 +116,7 @@ class RepoTracking(object):
                     file_line = file_line.rstrip()
                     return_list.append(file_line)
                 file_handle.close()
+
                 return return_list
             else:
                 return []
@@ -264,96 +267,23 @@ def configure_default_repo(check_network_again=True):
             subprocess.check_output("smart update fpga_repo", shell=True)
 
 def list_repos(do_filter=False, keep_tracking=True):
-    """ List all repositories from the 'smart channel --list' command.
-    Args:
-        do_filter (bool): True to perform filtering.
-        keep_tracking (bool): True to keep the repos in tracking file. False to remove the repos in tracking file.
+    """ List all repositories added by Dev Hub. Those added outside Dev Hub won't be in this list.
     Returns:
-        list: list of String of channel names
+        list: list of String of repo names
     """
-    if manage_config.use_new_list_repos:
-        result = list_repos_new(do_filter=do_filter, keep_tracking=keep_tracking)
-    else:
-        result = list_repos_original(do_filter=do_filter, keep_tracking=keep_tracking)
-    return result
-
-
-def list_repos_original(do_filter=False, keep_tracking=True):
-    """ List all repositories from the 'smart channel --list' command.
-    Args:
-        do_filter (bool): True to perform filtering.
-        keep_tracking (bool): True to keep the repos in tracking file. False to remove the repos in tracking file.
-    Returns:
-        list: list of String of channel names
-    """
-    log_helper = logging_helper.logging_helper.Logger()
-    response = []
-    channel_list = shell_ops.run_command('smart channel --list').split("\n")
-    for item in channel_list:
-        if item != "" and 'rpmsys' not in item:
-            response.append(item)
-    if do_filter:
-        response = RepoTracking.filter_repo_list(response, keep_tracking=keep_tracking)
-    log_helper.logger.debug("List of repositories: '%s'" % str(response))
-    return response
-
-
-def list_repos_new(do_filter=False, keep_tracking=True):
-    """ List all repositories from smart's cache /var/lib/smart/channels.
-
-    The requirements of using this is to make sure that smart update is called to update cache,
-    when add/remove repo is done.
-
-    Args:
-        do_filter (bool): True to perform filtering.
-        keep_tracking (bool): True to keep the repos in tracking file. False to remove the repos in tracking file.
-    Returns:
-        list: list of String of channel names
-    """
-    log_helper = logging_helper.logging_helper.Logger()
-    response = []
-
-    # Smart cache should be updated already upon repo/channel ops.
-
-    # Find out the channels by checking /var/lib/smart/channels folder. (This won’t include rpmsys channel.)
-    try:
-        for f in os.listdir(manage_config.smart_cache_path):
-            if os.path.isfile(manage_config.smart_cache_path + '/' + f):
-                repo_name = f.split('%%')[0]
-                if not (repo_name in response):
-                    response.append(repo_name)
-    except Exception as e:
-        log_helper.logger.debug(str(e))
-
-    if do_filter:
-        response = RepoTracking.filter_repo_list(response, keep_tracking=keep_tracking)
-    log_helper.logger.debug("List of repositories: '%s'" % str(response))
-    return response
-
-
-def list_repos_os_only():
-    """ Return list of OS repos. OS Repos are repos not in the tracking file, and not the default Intel repo.
-    Returns:
-        list: list of OS repos.
-    """
-    log_helper = logging_helper.logging_helper.Logger()
-    repos = list_repos(do_filter=True, keep_tracking=False)
-    filtered_repos = []
-    for repo in repos:
-        if repo != manage_config.default_repo_name:
-            filtered_repos.append(repo)
-    log_helper.logger.debug("OS repos: " + str(filtered_repos))
-    return filtered_repos
-
+    return list_repos_non_os_only()
 
 def list_repos_non_os_only():
     """ Return list of non-OS repos. non-OS Repos are repos in the tracking file, or the default Intel repo.
     Returns:
         list: list of non-OS repos.
     """
+
     log_helper = logging_helper.logging_helper.Logger()
     tracking_lines = RepoTracking.read_from_tracking()
-    if tracking_lines is None:
+    return tracking_lines
+
+    '''if tracking_lines is None:
         # something wrong, cannot read from tracking file
         return None
     repos = list_repos()
@@ -370,8 +300,24 @@ def list_repos_non_os_only():
             if in_tracking:  # added by user from Dev Hub, disable it.
                 filtered_repos.append(repo)
     log_helper.logger.debug("non-OS repos: " + str(filtered_repos))
-    return filtered_repos
+    return filtered_repos'''
 
+def check_duplicate(url):
+    """ List all repositories from the 'smart channel --list' command.
+     Args:
+         do_filter (bool): True to perform filtering.
+         keep_tracking (bool): True to keep the repos in tracking file. False to remove the repos in tracking file.
+     Returns:
+         bool: True if repo URL is in the sources.list file. False if not.
+     """
+
+    fn = '/etc/apt/sources.list'
+    f = open(fn, 'r')
+    for line in f:
+        if (url in line and not line[0] == '#'):
+            f.close()
+            return True
+    return False
 
 def add_repo(url, user_name, password, name, from_startup=False, from_GUI=False, check_network_again=True):
     """ Add a repository to the channel cache.
@@ -420,9 +366,44 @@ def add_repo(url, user_name, password, name, from_startup=False, from_GUI=False,
         else:
             url = url.replace("://", "://%s:%s@" % (user_name, password))
 
-    command = "smart channel --add '" + name + "' type=rpm-md baseurl='" + url + "' -y"
-    result = shell_ops.run_cmd_chk(command)
-    if result['returncode']:
+    duplicate = check_duplicate(url)
+
+    if (duplicate):
+        log_helper.logger.error("Error: Duplicate repository url '%s'" % url)
+    else:
+        RepoTracking.add_to_tracking(name)
+        network_checker = network_ops.NetworkCheck()
+        if network_checker.get_stored_https_status() and network_checker.get_stored_http_status(): # make sure there's a network connection
+            cmds = ["sudo apt-add-repository " + url,
+                    "wget " + url + "/public.key", "sudo apt-key add public.key",
+                    "rm -f public.key", "sudo apt-get update"]
+            for cmd in cmds:
+                result = shell_ops.run_cmd_chk(cmd)
+                if result['returncode']:
+                    error = "Failed to add repository: " + result['cmd_output'][
+                                                           result['cmd_output'].index("error:") + 7:].replace("\n", "")
+                    response['error'] = error
+                    log_helper.logger.error("Failed to add repository. Error output: '%s'" % response['error'])
+                    RepoTracking.remove_from_tracking(name)
+                    #TODO: error check below
+                    result = shell_ops.run_cmd_chk('sudo apt-add-repository -r ' + url)
+                    result = shell_ops.run_cmd_chk('sudo apt-get update')
+                    return json.dumps(response)
+                else:
+                    response['status'] = "success"
+                    response['message'] = 'The repository ' + name + ' was successfully added. Package list was updated.'
+        else:
+            error = "Failed to add repository: make sure device is online before adding a repo"
+            response['error'] = error
+            log_helper.logger.error("Failed to add repository. Error output: '%s'" % response['error'])
+            return json.dumps(response)
+
+
+        manage_package_deb.update_package_list()
+        response['p_list'] = manage_package.get_data()
+        return json.dumps(response)
+
+    '''if result['returncode']:
         if "error" in result['cmd_output']:
             remove_repo(name)
             error = "Failed to add repository: " + result['cmd_output'][result['cmd_output'].index("error:") + 7:].replace("\n", "")
@@ -478,10 +459,7 @@ def add_repo(url, user_name, password, name, from_startup=False, from_GUI=False,
 
             update_channels(CheckNetworkAgain=check_network_again)
 
-            log_helper.logger.debug("Successfully added repository '%s'" % name)
-
-    response['p_list'] = manage_package.get_data()
-    return json.dumps(response)
+            log_helper.logger.debug("Successfully added repository '%s'" % name)'''
     
 
 def remove_repo(name, UpdateCache=False, from_GUI=False):
@@ -503,7 +481,6 @@ def remove_repo(name, UpdateCache=False, from_GUI=False):
     response = ({
             'status': "failure",
         })
-
     result = subprocess.check_output(["smart", "channel", "--remove", name, "-y"])
     if "error:" in result:
         log_helper.logger.error("Failed to remove repository named '%s'" % name)
@@ -527,8 +504,8 @@ def remove_repo(name, UpdateCache=False, from_GUI=False):
             response['status'] = "success"
             log_helper.logger.debug("Successfully removed repository named '%s'" % name)
 
-    # package list is updated. Recreate pacakge database
-    manage_package.build_package_database()
+    # package list is updated. Recreate package database
+    manage_package_deb.build_package_database()
     response['p_list'] = manage_package.get_data()
     return json.dumps(response)
 
@@ -543,6 +520,13 @@ def update_channels(CheckNetworkAgain=True):
                 'message' = '', and
                 'p_list' = new packages list
     """
+
+    #Todo: uncomment below
+    response = {'status': 'failure', 'error': '', 'p_list': []}
+    manage_package_deb.update_package_list()
+    response['p_list'] = manage_package.get_data()
+    return json.dumps(response)
+
     log_helper = logging_helper.logging_helper.Logger()
     log_path = "/tmp/uc_log"
     response = ({
@@ -583,11 +567,10 @@ def update_channels(CheckNetworkAgain=True):
                     pass
             response['status'] = 'success'
             log_helper.logger.debug("Successfully updated channel.")
-        manage_package.update_package_list()
+        manage_package_deb.update_package_list()
 
     response['p_list'] = manage_package.get_data()
     return json.dumps(response)
-
 
 def enable_only_os_repos():
     """ Enable only OS repos.

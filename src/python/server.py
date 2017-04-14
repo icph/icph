@@ -14,51 +14,22 @@ import manage_repo
 import manage_proxy
 import manage_auth
 import manage_service
-import manage_usb
 import manage_os_controls
-import manage_os_update
 import manage_service
 import manage_usb
-import manage_hac
-import manage_pro_upgrade
 import manage_security
-import manage_mec
 import manage_self_update
 import manage_oem_branding
 import manage_nginx_userDB
 import manage_worker
 import manage_softsoc
 import manage_tutorials
-from tools import logging_helper, onetime_update, sysinfo_ops, network_ops
-
-
-'''
-Create a server using CherryPy and expose the /action/ directory.
-These actions can be routed to @action_select and distributed by
-calling different functions based on specified arguments.
-
-Usage:
-    /action/install_package?package=gedit
-        action is "install_package"
-        arguments are "package (key), gedit (value)"
-
-    /action/add_repo?name=intel_repo&url=http://myurl
-        action is "add_repo"
-        arguments are "name (key), intel_repo (value)",
-         "url (key), http://myurl (value)"
-'''
+from tools import logging_helper, sysinfo_ops, network_ops
 
 
 class Server(object):
     authenticated = False
     proxy_override = False
-
-    '''@cherrypy.expose
-    def action(self, action, **kwargs):
-        arg_list = []
-        for key, value in kwargs.iteritems():
-            arg_list.append([key, value])
-        return action_select(action, arg_list)'''
 
     @cherrypy.expose
     def index(self):
@@ -190,6 +161,7 @@ if __name__ == '__main__':
         '/':
             {'request.dispatch': cherrypy.dispatch.MethodDispatcher()}
         }
+    cherrypy.tree.mount(Server(), '/', config=root_config)
     cherrypy.tree.mount(manage_package.Packages(), '/api/packages', config=app_config)
     cherrypy.tree.mount(manage_repo.Repository(), '/api/repository', config=app_config)
     cherrypy.tree.mount(manage_proxy.Proxy(), '/api/proxy', config=app_config)
@@ -201,32 +173,18 @@ if __name__ == '__main__':
     cherrypy.tree.mount(manage_os_controls.OSFiles(), '/api/file', config=app_config)
     cherrypy.tree.mount(manage_os_controls.Accounts(), '/api/accounts', config=app_config)
     cherrypy.tree.mount(manage_usb.USB_API(), '/api/usb', config=app_config)
-    cherrypy.tree.mount(manage_pro_upgrade.EnablePro(), '/api/pro', config=app_config)
-    cherrypy.tree.mount(manage_os_update.OSUpdate(), '/api/osup', config=app_config)
-    cherrypy.tree.mount(Server(), '/', config=root_config)
-    cherrypy.tree.mount(manage_hac.HAC(), '/api/hac', config=app_config)
     cherrypy.tree.mount(manage_package.PackageInfo(), '/api/packageinfo', config=app_config)
-    cherrypy.tree.mount(manage_mec.MEC_API(), '/api/mec', config=app_config)
     cherrypy.tree.mount(manage_auth.Session(), '/api/validate_session', config=app_config)
     cherrypy.tree.mount(manage_oem_branding.OemBranding(), '/api/oembranding', config=app_config)
     cherrypy.tree.mount(manage_os_controls.PlatformCheck(), '/api/platform', config=app_config)
     cherrypy.tree.mount(manage_tutorials.Tutorials(), '/api/tutorials', config=app_config)
     cherrypy.tree.mount(manage_softsoc.SoftSoc(), '/api/softsoc', config=app_config)
+    cherrypy.tree.mount(manage_os_controls.FpgaInfo(), '/api/fpgainfo', config=app_config)
     cherrypy.server.unsubscribe()
 
     # Do the following config file operations at the Main Process.
     # Worker Process will not deal with the config file in initialization work.
     config = manage_config.read_config_file()
-
-    if sysinfo_ops.os_type == 'wrlinux':
-        hdc_config = config.get('HDC', 'config')
-        if hdc_config == 'False':
-            my_logger.logger.debug('setting hdc')
-            manage_config.HDCSettings.set_hdc_server_details()
-            rsys = onetime_update.RSYSLOG()
-            rsys.update_rsyslog()
-            node = onetime_update.NODEPATH()
-            node.update_path()
 
     secure_http = config.get('SecurityAutomation', 'secure_http')
     if secure_http == 'true':

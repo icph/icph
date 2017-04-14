@@ -85,7 +85,7 @@
     "description": "A collection of flows, scripts, and functions that makes it easy to get started on the Intel IoT Gateway using Node-RED.",
     "vertical": "",
     "service": ["node-red-experience.service"],
-    "launch": ":1880"
+    "launch": ""
   },
   {
     "name": "node-red-experience-devkit",
@@ -263,3 +263,4 @@
     "launch": ""
   }
 ]
+

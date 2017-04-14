@@ -12,8 +12,6 @@ import ast
 import os
 import manage_config
 import manage_repo
-import manage_pro_upgrade
-import manage_os_update
 import manage_proxy
 import manage_package
 import manage_worker
@@ -205,18 +203,6 @@ def set_proxy_config_in_worker_process(http_url, http_port, https_url, https_por
         manage_config.network_status['http_conn'] = net_conn['http_conn']
         response['https_conn'] = 'True'
 
-    if sysinfo_ops.os_type == 'wrlinux':
-        # Add Flex repos if we are in flex.
-        # And we do not need to check network again since we checked it already.
-        pro_status = manage_pro_upgrade.ProStatus()
-        if pro_status.enabled_state()['result'] == 'False':
-            log_helper.logger.debug('Has network and in flex... so add flex repos.')
-            # add flex repos
-            os_updater = manage_os_update.OS_UPDATER(sysinfo_ops.rcpl_version, sysinfo_ops.arch)
-            add_result = os_updater.add_os_repos()
-            if add_result['status'] == 'fail':
-                log_helper.logger.error('Failed to add flex repos.. ' + add_result['error'])
-
     # We do this at the end so that we don't run too many processes.
     # Restart Node-Red and WR-IOT-Agent for Proxy settings to take effect
     try:
@@ -404,7 +390,8 @@ class Proxy(object):
             test_result1['repo_list'] = 'NA'
             test_result1['repo_status'] = 'success'
             test_result1['repo_error'] = ''
-            if need_refresh:
+	    # TODO for MultiOS
+            '''if need_refresh:
                 # Grab the pro status
                 config = manage_pro_upgrade.ProStatus()
                 pro_status = config.enabled_state()
@@ -412,7 +399,7 @@ class Proxy(object):
                 # Get the new package list
                 test_result1['package_list'] = manage_package.get_data()
                 # Get the new repos list
-                test_result1['repo_list'] = manage_repo.list_repos_non_os_only()
+                test_result1['repo_list'] = manage_repo.list_repos_non_os_only()'''
 
             # Check for errors to display on login
             # Although this is done every minute, most of the time, we are just checking file existence.

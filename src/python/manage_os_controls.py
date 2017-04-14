@@ -13,14 +13,20 @@ import subprocess
 from manage_auth import require
 from tools import sysinfo_ops
 
+class FpgaInfo(object):
+    exposed = True
+
+    def GET(self, **kwargs):
+        data_collect = sysinfo_ops.DataCollect()
+        fpga_info = data_collect.getFpgaInfo()
+        return json.dumps(fpga_info)
+
 class PlatformCheck(object):
     exposed = True
 
     def GET(self):
-        platform_info = {}
-        data_collect = sysinfo_ops.DataCollect()
-        platform_info['platform'] = data_collect.getPlatform()
-        return json.dumps(platform_info)
+        dh_config = sysinfo_ops.ConfigInit()
+        return json.dumps(dh_config.getConfig())
 
 
 @require()
@@ -31,17 +37,6 @@ class OSControls(object):
         data_collect = sysinfo_ops.DataCollect()
         device_info = data_collect.getDataSet()
         return json.dumps(device_info)
-
-    def POST(self):
-        result = {'status': 'success', 'message': ''}
-
-        try:
-            subprocess.Popen('sleep 10s; sudo -u wra /usr/bin/dh-rfs', shell=True)
-        except Exception as e:
-            result['status'] = 'failure'
-            result['message'] = str(e)
-
-        return json.dumps(result)
 
     def PUT(self):
         result = {'status': 'success', 'message': ''}

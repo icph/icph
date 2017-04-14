@@ -20,7 +20,7 @@ fpga_deploy = /boot/
 default_tab = referencesoftware
 
 [DefaultRepo]
-base_repo = http://jfslabigs.jf.intel.com/iotgateway/synergy/yocto
+base_repo = https://download.01.org/iotgateway/yocto/psx86_64/
 
 [HDC]
 config = False

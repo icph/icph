@@ -71,7 +71,7 @@ class NetworkCheck(object):
                 urllib2.install_opener(opener)
                 self.__log_helper.logger.debug("Proxy for connection check is " + str(protocol_value) + str(env_value))
 
-            if sysinfo_ops.os_type == "wrlinux":
+            if sysinfo_ops.os_type == "wrlinux" or  sysinfo_ops.os_type == "ubuntu":
                 response = urllib2.urlopen(URLHeadRequest(http_string + self.__remote_url), timeout=timeout_value)
             else:
                 context = ssl._create_unverified_context()

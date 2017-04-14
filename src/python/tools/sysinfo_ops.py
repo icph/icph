@@ -25,13 +25,33 @@ rcpl_version = str("Not Set")
 arch = str("Not Set")
 display_arch = str("Not Set")
 os_type = str("Not Set")
+dh_configuration = {}
 
+class ConfigInit(object):
+    def __init__(self):
+        self.__dh_configuration = {}
+
+    def getConfig(self):
+        global os_type
+        global sysVersion
+        config = manage_config.read_config_file()
+        self.__dh_configuration['platform'] = os_type
+        self.__dh_configuration['platform_ver'] = sysVersion
+        self.__dh_configuration['sensor_tab'] = config.get('General', 'sensor_tab')
+        self.__dh_configuration['softsoc_tab'] = config.get('General', 'softsoc_tab')
+        self.__dh_configuration['ref_sw_tab'] = config.get('General', 'ref_sw_tab')
+        self.__dh_configuration['package_tab'] = config.get('General', 'package_tab')
+        self.__dh_configuration['admin_tab'] = config.get('General', 'admin_tab')
+        self.__dh_configuration['documentation_tab'] = config.get('General', 'documentation_tab')
+        self.__dh_configuration['default_tab'] = config.get('General', 'default_tab')
+        return self.__dh_configuration
 
 class DataCollect(object):
 
     def __init__(self):
         self.__ss_id = None
         self.__data_set = {}
+        self.__fpga_data = {}
         # self.__lan_ip_addr = {}
         # self.__wan_ip_addr = {}
         self.__net_interface = {}
@@ -75,17 +95,6 @@ class DataCollect(object):
         return self.__net_interface
 
 
-    def getWifiSSID(self):
-        """ Return WiFi SSID.
-        Returns:
-            str: WiFi SSID
-        """
-        '''self.__ss_id = shell_ops.run_command('uci show wireless.@wifi-iface[0].ssid')
-        if 'not found' in self.__ss_id:
-            return 'No Wireless'
-        self.__ss_id = self.__ss_id.strip('\n').split('=')'''
-        return 'tbd'
-
     def getDateTime(self):
         """ Return current date time.
         Returns:
@@ -110,6 +119,67 @@ class DataCollect(object):
         self.__hours = t[0]
         self.__uptime = '%sd %sh %sm' % (self.__days, self.__hours, self.__minutes)
         return self.__uptime
+
+    def getSystemVersion(self):
+        """ Return system version.
+        Returns:
+            str: system version
+        """
+        global sysVersion
+        global rcpl_version
+        global os_type
+        with open('/etc/os-release') as os:
+            release = {}
+            for line in os:
+                if len(line) > 1:
+                    k, v = line.rstrip().split('=')
+                    release[k] = v.strip('"')
+        if release['ID'] == 'wrlinux':
+            version = release['VERSION'].split('.')
+            rcpl_version = int(version[3])
+        os_type = release['ID']
+        sysVersion = release['VERSION']
+        return sysVersion
+
+
+    def getCPUType(self):
+        """ Return cpu arch.
+        Returns:
+            str: cpu arch
+        """
+        global arch
+        global display_arch
+        if arch == "Not Set":
+            self.__log_helper.logger.debug('Setting Arch')
+            # TODO fix ARCH check for Multi OS
+            '''command = rpm -q --queryformat %{ARCH} bash
+            arch = shell_ops.run_command(command)'''
+            arch = 'corei7_64'
+            if arch == 'corei7_64':
+                arch = "baytrail"
+            elif arch == 'quark':
+                arch = "quark"
+            else:
+                arch = "haswell"
+        cpu_name = shell_ops.run_cmd_chk("cat /proc/cpuinfo | grep 'model name' | uniq")
+        display_arch = cpu_name['cmd_output'].split(':')[1]
+        return display_arch
+
+    def getDiskUsage(self, path):
+        """ Return disk usage statistics about the given path.
+        Args:
+            path (str): the target path to get usage info for.
+        Returns:
+            dict: keys are 'total', 'used' and 'free', which are the amount of total, used and free space, in bytes.
+        """
+        st = os.statvfs(path)
+        self.__free = (st.f_bavail * st.f_frsize)/1000000000.0
+        self.__total = (st.f_blocks * st.f_frsize)/1000000000.0
+        self.__used = ((st.f_blocks - st.f_bfree) * st.f_frsize)/1000000000.0
+        self.__disk_usage['total'] = '%.1f' % round(self.__total, 1)
+        self.__disk_usage['used'] = '%.1f' % round(self.__used, 1)
+        self.__disk_usage['free'] = '%.1f' % round(self.__free, 1)
+        return self.__disk_usage
 
     def getPlatform(self):
         config = manage_config.read_config_file()
@@ -143,80 +213,6 @@ class DataCollect(object):
         config = manage_config.read_config_file()
         return config.get('General', 'default_tab')
 
-    def getSystemVersion(self):
-        """ Return system version.
-        Returns:
-            str: system version
-        """
-        global sysVersion
-        global rcpl_version
-        global os_type
-        with open('/etc/os-release') as os:
-            release = {}
-            for line in os:
-                k, v = line.rstrip().split('=')
-                release[k] = v.strip('"')
-        if release['ID'] == 'wrlinux':
-            version = release['VERSION'].split('.')
-            rcpl_version = int(version[3])
-        os_type = release['ID']
-        sysVersion = release['VERSION']
-        return sysVersion
-
-
-    def getCPUType(self):
-        """ Return cpu arch.
-        Returns:
-            str: cpu arch
-        """
-        global arch
-        global display_arch
-        if arch == "Not Set":
-            self.__log_helper.logger.debug('Setting Arch')
-            command = '''rpm -q --queryformat %{ARCH} bash'''
-            arch = shell_ops.run_command(command)
-            if arch == 'corei7_64':
-                arch = "baytrail"
-            elif arch == 'quark':
-                arch = "quark"
-            else:
-                arch = "haswell"
-        cpu_name = shell_ops.run_cmd_chk("cat /proc/cpuinfo | grep 'model name' | uniq")
-        display_arch = cpu_name['cmd_output'].split(':')[1]
-        return display_arch
-
-    def getDiskUsage(self, path):
-        """ Return disk usage statistics about the given path.
-        Args:
-            path (str): the target path to get usage info for.
-        Returns:
-            dict: keys are 'total', 'used' and 'free', which are the amount of total, used and free space, in bytes.
-        """
-        st = os.statvfs(path)
-        self.__free = (st.f_bavail * st.f_frsize)/1000000000.0
-        self.__total = (st.f_blocks * st.f_frsize)/1000000000.0
-        self.__used = ((st.f_blocks - st.f_bfree) * st.f_frsize)/1000000000.0
-        self.__disk_usage['total'] = '%.1f' % round(self.__total, 1)
-        self.__disk_usage['used'] = '%.1f' % round(self.__used, 1)
-        self.__disk_usage['free'] = '%.1f' % round(self.__free, 1)
-        return self.__disk_usage
-
-    def getMcafeeStatus(self):
-        """ Return status of MEC service
-        Returns:
-            active / inactive
-        """
-        global os_type
-        if os_type == 'wrlinux':
-            chk_out = shell_ops.run_cmd_chk('systemctl is-active scsrvc.service')
-            if chk_out['returncode']:
-                result = 'Inactive'
-            else:
-                result = 'Active'
-        else:
-            result = ""
-        return result
-
     def getDataSet(self):
         """ Return system info data.
         Returns:
@@ -227,11 +223,9 @@ class DataCollect(object):
         self.__data_set['time'] = self.getDateTime()
         self.__data_set['uptime'] = self.getUpTime()
         self.__data_set['netinterface'] = self.getLanIPAddr()
-        self.__data_set['ssid'] = self.getWifiSSID()
         self.__data_set['disk'] = self.getDiskUsage('/')
         self.__data_set['system_version'] = self.getSystemVersion()
         self.__data_set['devhub_version'] = self.getDevHubVersion()
-        self.__data_set['mcAfee_status'] = self.getMcafeeStatus()
         self.__data_set['platform'] = self.getPlatform()
         self.__data_set['sensor_config'] = self.getSensorConfig()
         self.__data_set['softsoc_config'] = self.getSoftSOCConfig()
@@ -241,6 +235,18 @@ class DataCollect(object):
         self.__data_set['documentation_config'] = self.getDocumentationConfig()
         self.__data_set['default_tab'] = self.getDefaultTabConfig()
         return self.__data_set
+
+    def getFpgaInfo(self):
+        """ Return fpga info data.
+        Returns:
+            dict: keys are 'class', 'device', 'total_space', 'space_used', 'space_available'
+        """
+        self.__fpga_data['class'] = 'CV'
+        self.__fpga_data['device'] = 'Cyclone-V'
+        self.__fpga_data['total_space'] = '10 GB'
+        self.__fpga_data['space_used'] = '2 GB'
+        self.__fpga_data['space_available'] = '8 GB'
+        return self.__fpga_data
 
     def platform_details(self):
         """ Return platform architecture and rcpl version.
@@ -255,8 +261,10 @@ class DataCollect(object):
         return architecture, rcpl
         
     def getDevHubVersion(self):
-        devhub_version = shell_ops.run_command('rpm -q --queryformat %{version}-%{release} iot-developer-hub')
-        return devhub_version
+	# TODO Fix for Multi OS
+        '''devhub_version = shell_ops.run_command('rpm -q --queryformat %{version}-%{release} iot-developer-hub')
+        return devhub_version'''
+        return '1.0.4'
 
     def getTargetAccounts(self):
         # https://docs.python.org/2/library/pwd.html

@@ -18,10 +18,10 @@ from Queue import Empty, Full
 from tools import logging_helper, data_ops, sysinfo_ops, shell_ops, network_ops
 import manage_proxy
 import manage_config
-import manage_pro_upgrade
-import manage_os_update
 import manage_repo
+import manage_repo_deb
 import manage_package
+import manage_package_deb
 import manage_security
 import manage_self_update
 import manage_service
@@ -50,6 +50,7 @@ worker_process_message_type_save_image = "Save OS Image"
 worker_process_message_type_toggle_https = "Toggle HTTPS Connection"
 worker_process_message_type_get_repo = "Get Repositories List"
 worker_process_message_type_update_repo = "Update Repositories and Packages"
+worker_process_configuration_type_get_package_list  = "Update package List"
 worker_process_message_type_add_repo = "Add Repository"
 worker_process_message_type_remove_repo = "Remove Repository"
 worker_process_message_type_upgrade_package = "Upgrade Package"
@@ -70,6 +71,7 @@ worker_process_test_2_sleep_time = 10  # unit is seconds
 worker_process_internal_work_id = 'internal'
 worker_process_internal_init_work_id = 'internal init'
 worker_process_GUI_refresh_time = time.time() - 1000  # make this a long time (1000 seconds) ago
+worker_process_configuration = {}
 
 
 class WorkerProcess(Process):
@@ -97,7 +99,12 @@ class WorkerProcess(Process):
 
         # gather system info
         data_collector = sysinfo_ops.DataCollect()
-        sys_info_dict = data_collector.getDataSet()
+        self.__sys_info_dict = data_collector.getDataSet()
+
+        conf_collector = sysinfo_ops.ConfigInit()
+        self.__conf_dict = conf_collector.getConfig()
+
+    # Generic Mothods
 
     def handler_default(self, message, str_work_id, work_result):
         """ Handler function for not supported type
@@ -194,6 +201,9 @@ class WorkerProcess(Process):
                 2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
         """
         work_type = worker_process_message_type_initialization
+
+        global worker_process_configuration
+
         self.__log_helper.logger.info("Doing work: " + work_type)
         try:
             # Let's not remove the old file, so that the user can see the old packages list even if conection does not work.
@@ -206,45 +216,12 @@ class WorkerProcess(Process):
             # Check network
             network_checker = network_ops.NetworkCheck()
             network_checker.test_network_connection(check_http=manage_config.network_check_http)
-            if sysinfo_ops.os_type == 'wrlinux':
-                pro_status = manage_pro_upgrade.ProStatus()
-                if network_checker.get_stored_https_status() and network_checker.get_stored_http_status():  # yes network
-                    if pro_status.enabled_state()['result'] == 'False':  # flex
-                        add_flex_repo = True
-                        remove_flex_repo = False
-                    else:  # pro.
-                        add_flex_repo = False
-                        remove_flex_repo = True
-                else:  # no network
-                    if pro_status.enabled_state()['result'] == 'False':  # fex
-                        add_flex_repo = False
-                        remove_flex_repo = False
-                    else:  # pro.
-                        add_flex_repo = False
-                        remove_flex_repo = True
-
-                if add_flex_repo:
-                    self.__log_helper.logger.debug('Has network and in flex... so add flex repos.')
-                    os_updater = manage_os_update.OS_UPDATER(sysinfo_ops.rcpl_version, sysinfo_ops.arch)
-                    add_result = os_updater.add_os_repos()
-                    if add_result['status'] == 'fail':
-                        self.__log_helper.logger.error('Failed to add flex repos.. ' + add_result['error'])
-                    else:
-                        pass
-
-                if remove_flex_repo:
-                    self.__log_helper.logger.debug('Removing Flex repos since we are in pro.')
-                    os_updater = manage_os_update.OS_UPDATER(sysinfo_ops.rcpl_version, sysinfo_ops.arch, no_network_ops=True)
-                    remove_result = os_updater.remove_os_repos(do_update=False, do_pro=False)
-                    if remove_result['status'] == 'fail':
-                        self.__log_helper.logger.error('Failed to remove flex repos.. ' + remove_result['error'])
-                    else:
-                        pass
 
             # Add default repo and build packages list
+            # TODO Add default Repo
             manage_repo.configure_default_repo(check_network_again=False)
 
-            manage_package.set_signature_verification_status(True)
+            # manage_package.set_signature_verification_status(True)
 
             work_result['result'] = ''
             work_result['status'] = 'success'
@@ -344,21 +321,7 @@ class WorkerProcess(Process):
             #     then if we are in Flex, then if Flex repos are not added, add them.
             #     then if we are in Pro, then rebuild the package list
             if (not connection_good) and connection_good_new:
-                pro_status = manage_pro_upgrade.ProStatus()
-                self.__log_helper.logger.info("Update info for Flex or Pro due to network changes!")
-                if pro_status.enabled_state()['result'] == 'False':  # flex
-                    os_updater = manage_os_update.OS_UPDATER(sysinfo_ops.rcpl_version, sysinfo_ops.arch)
-                    add_result = os_updater.add_os_repos()
-                    if add_result['status'] == 'fail':
-                        self.__log_helper.logger.error('Failed to add flex repos.. ' + add_result['error'])
-                    else:
-                        # Update package list
-                        # And we do not need to check network again since we checked it already.
-                        manage_repo.update_channels(CheckNetworkAgain=False)
-                else:  # pro
-                    # Update package list
-                    # And we do not need to check network again since we checked it already.
-                    manage_repo.update_channels(CheckNetworkAgain=False)
+                manage_repo.update_channels(CheckNetworkAgain=False)
             work_result['result'] = ''
             work_result['status'] = 'success'
         except Exception as e:
@@ -366,83 +329,6 @@ class WorkerProcess(Process):
             work_result['result'] = str(e)
         self.__log_helper.logger.info("Finishing work: " + work_type)
         return False, True
-
-    def handler_upgrade_to_pro(self, message, str_work_id, work_result):
-        """ Handler function for worker_process_message_type_pro_upgrade
-        Args:
-            message (dict): the parameters related to this work
-            str_work_id (str): the work id
-            work_result (dict): mutable, this is our output result
-
-        Returns:
-            tuple:
-                1st: bool: True to for the calling function to return immediately
-                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
-        """
-        work_type = worker_process_message_type_pro_upgrade
-        self.__log_helper.logger.info("Doing work: " + work_type)
-        try:
-            flex_to_pro = manage_pro_upgrade.ProRepo()
-            u_result = flex_to_pro.os_upgrade(message.get('username', ''), message.get('password', ''))
-            work_result['result'] = u_result
-            work_result['status'] = 'success'
-        except Exception as e:
-            self.__log_helper.logger.error(str(e))
-            work_result['result'] = str(e)
-        self.__log_helper.logger.info("Finishing work: " + work_type)
-        return False, True
-
-    def handler_save_harden_image(self, message, str_work_id, work_result):
-        """ Handler function for worker_process_message_type_save_image
-        Args:
-            message (dict): the parameters related to this work
-            str_work_id (str): the work id
-            work_result (dict): mutable, this is our output result
-
-        Returns:
-            tuple:
-                1st: bool: True to for the calling function to return immediately
-                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
-        """
-        work_type = worker_process_message_type_save_image
-        self.__log_helper.logger.info("Doing work: " + work_type)
-        try:
-            # message = {
-            #        'harden_type'                : 'standard'/'custom',
-            #        'usb_device'                 : _usb_device,
-            #        'packages_removed'           : ['node', 'node-red-experience', .....],
-            #        'updaters'                   : ['/usr/bin/wr-iot-watchdog', '/usr/bin/wr-iot-agent', .......],
-            #        'users'                      : [{'name': '', 'pw': ''}, {'name': '', 'pw': ''}, ......],
-            #        'stig'                       : ['V-50549', 'V-50551', ....],
-            #        'admin_password'             : '',
-            #        'mec_password'               : ''
-            #    };
-            harden_type = message.get('harden_type', 'standard')
-            if harden_type == 'standard':
-                sa = manage_security.SecurityAutomationWorker()
-                sa.standard_harden_image(message.get('usb_device', ''),
-                                       message.get('admin_password', ''),
-                                       message.get('mec_password', ''))
-                s_result = sa.create_harden_image()
-            else:
-                sa = manage_security.SecurityAutomationWorker()
-                sa.custom_harden_image(message.get('usb_device', ''),
-                                       message.get('packages_removed', []),
-                                       message.get('updaters', []),
-                                       message.get('users', []))
-                s_result = sa.create_harden_image()
-
-                # replace the default config data with the new input
-                manage_security.save_default_custom_harden_data(message.get('packages_removed', []),
-                                                                message.get('updaters', []))
-
-            work_result['result'] = s_result
-            work_result['status'] = 'success'
-        except Exception as e:
-            self.__log_helper.logger.error(str(e))
-            work_result['result'] = str(e)
-        self.__log_helper.logger.info("Finishing work: " + work_type)
-        return False, False
 
     def handler_toggle_https(self, message, str_work_id, work_result):
         """ Handler function for worker_process_message_type_toggle_https
@@ -468,6 +354,32 @@ class WorkerProcess(Process):
             work_result['result'] = str(e)
         self.__log_helper.logger.info("Finishing work: " + work_type)
         return False, True
+
+    def handler_control_service(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_control_service
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_control_service
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            s_result = manage_service.ServiceSupport.control_service(message)
+            work_result['result'] = s_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    # Yocto Methods
 
     def handler_get_repo(self, message, str_work_id, work_result):
         """ Handler function for worker_process_message_type_get_repo
@@ -705,63 +617,6 @@ class WorkerProcess(Process):
         self.__log_helper.logger.info("Finishing work: " + work_type)
         return False, True
 
-    def handler_control_service(self, message, str_work_id, work_result):
-        """ Handler function for worker_process_message_type_control_service
-        Args:
-            message (dict): the parameters related to this work
-            str_work_id (str): the work id
-            work_result (dict): mutable, this is our output result
-
-        Returns:
-            tuple:
-                1st: bool: True to for the calling function to return immediately
-                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
-        """
-        work_type = worker_process_message_type_control_service
-        self.__log_helper.logger.info("Doing work: " + work_type)
-        try:
-            s_result = manage_service.ServiceSupport.control_service(message)
-            work_result['result'] = s_result
-            work_result['status'] = 'success'
-        except Exception as e:
-            self.__log_helper.logger.error(str(e))
-            work_result['result'] = str(e)
-        self.__log_helper.logger.info("Finishing work: " + work_type)
-        return False, True
-
-    def handler_check_rcpl_update(self, message, str_work_id, work_result):
-        """ Handler function for worker_process_message_type_check_rcpl_update
-        Args:
-            message (dict): the parameters related to this work
-            str_work_id (str): the work id
-            work_result (dict): mutable, this is our output result
-
-        Returns:
-            tuple:
-                1st: bool: True to for the calling function to return immediately
-                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
-        """
-        work_type = worker_process_message_type_check_rcpl_update
-        self.__log_helper.logger.info("Doing work: " + work_type)
-        c_result = {'status': 'failure', 'message': '', 'update': False}
-        try:
-            updater = manage_os_update.OS_UPDATER(sysinfo_ops.rcpl_version, sysinfo_ops.arch,
-                                                  user_name=message.get('username', ''),
-                                                  password=message.get('password', ''))
-            error_message = updater.get_error()
-            if error_message is None:
-                c_result['update'] = updater.higher_version
-                c_result['status'] = 'success'
-            else:
-                c_result['message'] = str(error_message)
-            work_result['result'] = json.dumps(c_result)
-            work_result['status'] = 'success'
-        except Exception as e:
-            self.__log_helper.logger.error(str(e))
-            work_result['result'] = str(e)
-        self.__log_helper.logger.info("Finishing work: " + work_type)
-        return False, False
-
     def handler_check_os_packages_update(self, message, str_work_id, work_result):
         """ Handler function for worker_process_message_type_check_os_packages_update
         Args:
@@ -788,56 +643,6 @@ class WorkerProcess(Process):
                 self.__log_helper.logger.error(get_result['message'])
             else:
                 c_result['status'] = 'success'
-            work_result['result'] = json.dumps(c_result)
-            work_result['status'] = 'success'
-        except Exception as e:
-            self.__log_helper.logger.error(str(e))
-            work_result['result'] = str(e)
-        self.__log_helper.logger.info("Finishing work: " + work_type)
-        return False, False
-
-    def handler_do_rcpl_update(self, message, str_work_id, work_result):
-        """ Handler function for worker_process_message_type_do_rcpl_update
-        Args:
-            message (dict): the parameters related to this work
-            str_work_id (str): the work id
-            work_result (dict): mutable, this is our output result
-
-        Returns:
-            tuple:
-                1st: bool: True to for the calling function to return immediately
-                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
-        """
-        work_type = worker_process_message_type_do_rcpl_update
-        self.__log_helper.logger.info("Doing work: " + work_type)
-        c_result = {'status': 'failure', 'message': ''}
-        try:
-            # get node-red-experience status, stop node-red-experience service
-            status_node_red = manage_service.ServiceSupport.stop_node_red_experience()
-
-            updater = manage_os_update.OS_UPDATER(sysinfo_ops.rcpl_version, sysinfo_ops.arch,
-                                                  user_name=message.get('username', ''),
-                                                  password=message.get('password', ''))
-            error_message = updater.get_error()
-            if error_message is None:
-                # osUpdate needs to return the same dict as this function.
-                c_result = updater.osUpdate(user_name=message.get('username', ''),
-                                            password=message.get('password', ''))
-                # Do not do system reboot here..... Let's wait for GUI to tell us to reboot.
-                # If osUpdate succeeded, schedule a system reboot
-                # if c_result['status'] == 'success':
-                #    process = subprocess.Popen('sleep 5s; sudo shutdown -r now', shell=True)
-                #    pass
-            else:
-                c_result['message'] = str(error_message)
-
-            # If failure, start node-red-experience service if it was started before.
-            # If success, the gateway will be rebooted by Dev Hub, so do nothing.
-            if c_result['status'] == 'failure':
-                if status_node_red['status'] == 'success':
-                    if status_node_red['is_active']:
-                        manage_service.ServiceSupport.start_node_red_experience()
-
             work_result['result'] = json.dumps(c_result)
             work_result['status'] = 'success'
         except Exception as e:
@@ -883,6 +688,626 @@ class WorkerProcess(Process):
         self.__log_helper.logger.info("Finishing work: " + work_type)
         return False, True
 
+    # Debian Methods
+
+    def handler_get_repo_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_get_repo
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_get_repo
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            l_result = manage_repo_deb.list_repos_non_os_only()
+            if l_result is None:
+                work_result['result'] = 'Cannot access repositories tracking file!'
+                work_result['status'] = 'failure'
+            else:
+                work_result['result'] = json.dumps(l_result)
+                work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, False
+
+    def handler_update_repo_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_update_repo
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_update_repo
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            u_result = manage_repo_deb.update_channels()
+            work_result['result'] = u_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, False
+
+    def handler_add_repo_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_add_repo
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_add_repo
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            a_result = manage_repo_deb.add_repo(message.get('url', ''),
+                                            message.get('username', ''),
+                                            message.get('password', ''),
+                                            message.get('name', ''), from_GUI=True)
+            work_result['result'] = a_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_remove_repo_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_remove_repo
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_remove_repo
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            r_result = manage_repo.remove_repo_deb(message.get('name', ''), UpdateCache=True, from_GUI=True)
+            work_result['result'] = r_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_upgrade_package_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_upgrade_package
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_upgrade_package
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            p_result = manage_package_deb.package_transaction("upgrade", message)
+
+            # If this upgraded 1 package successfully, grab the latest info
+            if 'package' in message:
+                if message['package'] != 'all':
+                    temp_data = json.loads(p_result)
+                    if temp_data['status'] == 'success':
+                        # get package information
+                        p_info = manage_package.get_package_info(message['package'])
+                        p_data = json.loads(p_info)
+                        temp_data['p_info'] = p_data
+                        p_result = json.dumps(temp_data)
+
+            work_result['result'] = p_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_install_package_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_install_package
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_install_package
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            p_result = manage_package_deb.package_transaction("install", message)
+            work_result['result'] = p_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_remove_package_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_remove_package
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_remove_package
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            p_result = manage_package_deb.package_transaction("remove", message)
+            work_result['result'] = p_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_get_package_info_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_get_package_info
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_get_package_info
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            p_result = manage_package.get_package_info(message.get('name', ''))
+            work_result['result'] = p_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, False
+
+    def handler_upgrade_dev_hub_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_self_upgrade
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_self_upgrade
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            devhub = manage_self_update.DevHubUpdate()
+            u_result = devhub.update()
+            work_result['result'] = json.dumps(u_result)
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_check_os_packages_update_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_check_os_packages_update
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_check_os_packages_update
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        c_result = {'status': 'failure', 'packages': [], 'package_update': False, 'message': ''}
+        try:
+            get_result = manage_package.get_updates_for_os_packages()
+            c_result['package_update'] = get_result['package_update']
+            c_result['packages'] = get_result['packages']
+            # Check for error
+            if get_result['message']:
+                c_result['status'] = 'failure'
+                c_result['message'] = get_result['message']
+                self.__log_helper.logger.error(get_result['message'])
+            else:
+                c_result['status'] = 'success'
+            work_result['result'] = json.dumps(c_result)
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, False
+
+    def handler_do_os_packages_update_deb(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_do_os_packages_update
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_do_os_packages_update
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        c_result = {'status': 'failure', 'message': '', 'p_list': []}
+        try:
+            # get node-red-experience status, stop node-red-experience service
+            status_node_red = manage_service.ServiceSupport.stop_node_red_experience()
+
+            # do_updates_for_os_packages needs to return the same dict as this function.
+            c_result = manage_package.do_updates_for_os_packages()
+
+            # If failure, start node-red-experience service if it was started before.
+            # If success, the gateway will be rebooted by Dev Hub, so do nothing.
+            if c_result['status'] == 'failure':
+                if status_node_red['status'] == 'success':
+                    if status_node_red['is_active']:
+                        manage_service.ServiceSupport.start_node_red_experience()
+
+            work_result['result'] = json.dumps(c_result)
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    # CentOS Methods
+
+    def handler_get_repo_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_get_repo
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_get_repo
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            l_result = manage_repo.list_repos_non_os_only()
+            if l_result is None:
+                work_result['result'] = 'Cannot access repositories tracking file!'
+                work_result['status'] = 'failure'
+            else:
+                work_result['result'] = json.dumps(l_result)
+                work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, False
+
+    def handler_update_repo_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_update_repo
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_update_repo
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            u_result = manage_repo.update_channels()
+            work_result['result'] = u_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, False
+
+    def handler_add_repo_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_add_repo
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_add_repo
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            a_result = manage_repo.add_repo(message.get('url', ''),
+                                            message.get('username', ''),
+                                            message.get('password', ''),
+                                            message.get('name', ''), from_GUI=True)
+            work_result['result'] = a_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_remove_repo_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_remove_repo
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_remove_repo
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            r_result = manage_repo.remove_repo(message.get('name', ''), UpdateCache=True, from_GUI=True)
+            work_result['result'] = r_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_upgrade_package_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_upgrade_package
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_upgrade_package
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            p_result = manage_package.package_transaction("upgrade", message)
+
+            # If this upgraded 1 package successfully, grab the latest info
+            if 'package' in message:
+                if message['package'] != 'all':
+                    temp_data = json.loads(p_result)
+                    if temp_data['status'] == 'success':
+                        # get package information
+                        p_info = manage_package.get_package_info(message['package'])
+                        p_data = json.loads(p_info)
+                        temp_data['p_info'] = p_data
+                        p_result = json.dumps(temp_data)
+
+            work_result['result'] = p_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_install_package_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_install_package
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_install_package
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            p_result = manage_package.package_transaction("install", message)
+            work_result['result'] = p_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_remove_package_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_remove_package
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_remove_package
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            p_result = manage_package.package_transaction("remove", message)
+            work_result['result'] = p_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_get_package_info_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_get_package_info
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_get_package_info
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            p_result = manage_package.get_package_info(message.get('name', ''))
+            work_result['result'] = p_result
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, False
+
+    def handler_upgrade_dev_hub_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_self_upgrade
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_self_upgrade
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        try:
+            devhub = manage_self_update.DevHubUpdate()
+            u_result = devhub.update()
+            work_result['result'] = json.dumps(u_result)
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    def handler_check_os_packages_update_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_check_os_packages_update
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_check_os_packages_update
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        c_result = {'status': 'failure', 'packages': [], 'package_update': False, 'message': ''}
+        try:
+            get_result = manage_package.get_updates_for_os_packages()
+            c_result['package_update'] = get_result['package_update']
+            c_result['packages'] = get_result['packages']
+            # Check for error
+            if get_result['message']:
+                c_result['status'] = 'failure'
+                c_result['message'] = get_result['message']
+                self.__log_helper.logger.error(get_result['message'])
+            else:
+                c_result['status'] = 'success'
+            work_result['result'] = json.dumps(c_result)
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, False
+
+    def handler_do_os_packages_update_rhel(self, message, str_work_id, work_result):
+        """ Handler function for worker_process_message_type_do_os_packages_update
+        Args:
+            message (dict): the parameters related to this work
+            str_work_id (str): the work id
+            work_result (dict): mutable, this is our output result
+
+        Returns:
+            tuple:
+                1st: bool: True to for the calling function to return immediately
+                2nd: bool: True if this operation should trigger a GUI refresh for other Dev HUB GUI user.
+        """
+        work_type = worker_process_message_type_do_os_packages_update
+        self.__log_helper.logger.info("Doing work: " + work_type)
+        c_result = {'status': 'failure', 'message': '', 'p_list': []}
+        try:
+            # get node-red-experience status, stop node-red-experience service
+            status_node_red = manage_service.ServiceSupport.stop_node_red_experience()
+
+            # do_updates_for_os_packages needs to return the same dict as this function.
+            c_result = manage_package.do_updates_for_os_packages()
+
+            # If failure, start node-red-experience service if it was started before.
+            # If success, the gateway will be rebooted by Dev Hub, so do nothing.
+            if c_result['status'] == 'failure':
+                if status_node_red['status'] == 'success':
+                    if status_node_red['is_active']:
+                        manage_service.ServiceSupport.start_node_red_experience()
+
+            work_result['result'] = json.dumps(c_result)
+            work_result['status'] = 'success'
+        except Exception as e:
+            self.__log_helper.logger.error(str(e))
+            work_result['result'] = str(e)
+        self.__log_helper.logger.info("Finishing work: " + work_type)
+        return False, True
+
+    # Worker Methods
+
     def dict_mapping_for_handler(self, work_type):
         """ Return the target handler for the work_type
         Args:
@@ -891,6 +1316,7 @@ class WorkerProcess(Process):
         Returns:
             function: the mapped function
         """
+
         mapper = {
             worker_process_message_stop: self.handler_stop,
             worker_process_message_test: self.handler_test_1,
@@ -899,24 +1325,46 @@ class WorkerProcess(Process):
             worker_process_message_type_save_proxy: self.handler_save_proxy,
             worker_process_message_type_get_proxy: self.handler_get_proxy,
             worker_process_message_type_test_proxy: self.handler_test_proxy,
-            worker_process_message_type_pro_upgrade: self.handler_upgrade_to_pro,
-            worker_process_message_type_save_image: self.handler_save_harden_image,
             worker_process_message_type_toggle_https: self.handler_toggle_https,
-            worker_process_message_type_get_repo: self.handler_get_repo,
-            worker_process_message_type_update_repo: self.handler_update_repo,
-            worker_process_message_type_add_repo: self.handler_add_repo,
-            worker_process_message_type_remove_repo: self.handler_remove_repo,
-            worker_process_message_type_upgrade_package: self.handler_upgrade_package,
-            worker_process_message_type_install_package: self.handler_install_package,
-            worker_process_message_type_remove_package: self.handler_remove_package,
-            worker_process_message_type_get_package_info: self.handler_get_package_info,
-            worker_process_message_type_self_upgrade: self.handler_upgrade_dev_hub,
             worker_process_message_type_control_service: self.handler_control_service,
-            worker_process_message_type_check_rcpl_update: self.handler_check_rcpl_update,
-            worker_process_message_type_check_os_packages_update: self.handler_check_os_packages_update,
-            worker_process_message_type_do_rcpl_update: self.handler_do_rcpl_update,
-            worker_process_message_type_do_os_packages_update: self.handler_do_os_packages_update
         }
+
+        if self.__conf_dict['platform'] == 'ubuntu':
+            mapper[worker_process_message_type_get_repo] = self.handler_get_repo_deb
+            mapper[worker_process_message_type_update_repo] = self.handler_update_repo_deb
+            mapper[worker_process_message_type_add_repo] = self.handler_add_repo_deb
+            mapper[worker_process_message_type_remove_repo] = self.handler_remove_repo_deb
+            mapper[worker_process_message_type_upgrade_package] = self.handler_upgrade_package_deb
+            mapper[worker_process_message_type_install_package] = self.handler_install_package_deb
+            mapper[worker_process_message_type_remove_package] = self.handler_remove_package_deb
+            mapper[worker_process_message_type_get_package_info] = self.handler_get_package_info_deb
+            mapper[worker_process_message_type_self_upgrade] =  self.handler_upgrade_dev_hub_deb
+            mapper[worker_process_message_type_check_os_packages_update] = self.handler_check_os_packages_update_deb
+            mapper[worker_process_message_type_do_os_packages_update] = self.handler_do_os_packages_update_deb
+        elif self.__conf_dict['platform'] == 'centos':
+            mapper[worker_process_message_type_get_repo] = self.handler_get_repo_rhel
+            mapper[worker_process_message_type_update_repo] = self.handler_update_repo_rhel
+            mapper[worker_process_message_type_add_repo] = self.handler_add_repo_rhel
+            mapper[worker_process_message_type_remove_repo] = self.handler_remove_repo_rhel
+            mapper[worker_process_message_type_upgrade_package] = self.handler_upgrade_package_rhel
+            mapper[worker_process_message_type_install_package] = self.handler_install_package_rhel
+            mapper[worker_process_message_type_remove_package] = self.handler_remove_package_rhel
+            mapper[worker_process_message_type_get_package_info] = self.handler_get_package_info_rhel
+            mapper[worker_process_message_type_self_upgrade] =  self.handler_upgrade_dev_hub_rhel
+            mapper[worker_process_message_type_check_os_packages_update] = self.handler_check_os_packages_update_rhel
+            mapper[worker_process_message_type_do_os_packages_update] = self.handler_do_os_packages_update_rhel
+        else:
+            mapper[worker_process_message_type_get_repo] = self.handler_get_repo
+            mapper[worker_process_message_type_update_repo] = self.handler_update_repo
+            mapper[worker_process_message_type_add_repo] = self.handler_add_repo
+            mapper[worker_process_message_type_remove_repo] = self.handler_remove_repo
+            mapper[worker_process_message_type_upgrade_package] = self.handler_upgrade_package
+            mapper[worker_process_message_type_install_package] = self.handler_install_package
+            mapper[worker_process_message_type_remove_package] = self.handler_remove_package
+            mapper[worker_process_message_type_get_package_info] = self.handler_get_package_info
+            mapper[worker_process_message_type_self_upgrade] = self.handler_upgrade_dev_hub
+            mapper[worker_process_message_type_check_os_packages_update] = self.handler_check_os_packages_update
+            mapper[worker_process_message_type_do_os_packages_update] = self.handler_do_os_packages_update
         handler_func = mapper.get(work_type, self.handler_default)
         return handler_func
 

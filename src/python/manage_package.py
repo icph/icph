@@ -15,8 +15,8 @@ import ast
 from tools import logging_helper, data_ops, shell_ops, sysinfo_ops, network_ops
 import manage_config
 import manage_repo
-import manage_pro_upgrade
 import manage_worker
+import manage_package_deb
 from manage_auth import require
 
 # global variables used across multiple modules
@@ -36,10 +36,6 @@ def update_package_list():
     # Determine architecture and proper repository
     config = manage_config.read_config_file()
     base_url = config.get('DefaultRepo', 'base_repo')
-    platform = data_collector.getPlatform()
-    if sysinfo_ops.os_type == 'wrlinux':
-        architecture, rcpl_version = data_collector.platform_details()
-        base_url = base_url + '/' + rcpl_version + '/' + architecture
     curated_url = base_url + '/' + 'curated.xml.gz'
     local_path = '/tmp/curated.xml.gz'
     local_file = 'curated.txt'
@@ -123,7 +119,6 @@ def get_installed_packages_original(process):
         process.sendline('query --installed --show-format=$name|')
         process.expect('smart> ')
         return process.before.split('|')
-
 
 def get_installed_packages_new():
     """ Get a list of the installed packages from rpm module
@@ -307,73 +302,7 @@ def build_package_database_new():
     # ------------- Step 3: Handle packages specified in pro packages list file ---------------
     # -----------------------------------------------------------------------------------------
 
-    pro_status = manage_pro_upgrade.ProStatus()
-    if pro_status.enabled_state()['result'] == 'True':
-        log_helper.logger.info("Pro is enabled, so we check pro packages list file.")
-        # Check the pro file list
-        # Read the file to get package list
-        query_result = ""
-        list_query_args = []
-        pro_package_list = manage_pro_upgrade.ProPackageList.get_packages()
-        for package in pro_package_list:
-            # check if package is in installed list
-            if package in my_dict:  # installed
-                # check if package is already in the dict
-                if not (package in packages_added_dict):  # not added yet
-                    list_query_args.append(package)
-        if list_query_args:  # the argument list is not empty
-            log_helper.logger.info('Pro packages list: ' + str(list_query_args))
-            list_query_args.append('--installed')
-            list_query_args.append('--show-format=$name#myinfo#$version#myinfo#$summary#myinfo#$group#myline#')
-            # Run smart commands.
-            commands_list = ['query']
-            args_list = [list_query_args]
-            smart_status, smart_error, smart_return = handle_smart_commands(commands_list, args_list)
-            if smart_status == 'success':
-                query_result = smart_return[0]
-        log_helper.logger.debug("Before Pro packages list: " + str(len(packages_added_dict)))
-        if query_result:  # We have query result. These are pro packages that are not added yet.
-            list_query_result = query_result.split('#myline#')
-            for current_package in list_query_result:
-                # safe guard the last entry
-                if current_package == '\n' or current_package == '\n\n' or current_package == '':
-                    continue
-                else:
-                    package_info = current_package.split('#myinfo#')
-                    if not (len(package_info) == 4):
-                        log_helper.logger.error(current_package + " does not have current format to be parsed!")
-                        continue
-                # get package information
-                str_name = package_info[0]
-                str_version = package_info[1]
-                str_summary = package_info[2]
-                str_group = package_info[3]
-                installed = True
-                install_version = str_version[:str_version.index('@')]
-                # check if package has upgrade/update or not
-                has_upgrade = False
-                if str_name in upgrade_dict:
-                    has_upgrade = True
-                package = {'name': str_name,
-                           'version': install_version,
-                           'summary': str_summary,
-                           'group': str_group,
-                           'image': 'packages.png',  # Default no icon
-                           'title': str_name.replace('-', ' ').title(),
-                           'installed': installed,
-                           'curated': False,
-                           'vertical': '',
-                           'service': '',
-                           'launch': ''
-                           }
-                build_package_database_parse_package(str_name=str_name, curated_dict=curated_dict,
-                                                     upgrade_dict=upgrade_dict, already_added=False,
-                                                     installed=installed, install_version=install_version,
-                                                     has_upgrade=has_upgrade, package=package,
-                                                     packages_added_dict=packages_added_dict)
-        log_helper.logger.debug("After Pro packages list: " + str(len(packages_added_dict)))
-
-    # -----------------------------------------------------------------------------------------
+        # -----------------------------------------------------------------------------------------
     # ------------- Step 4: Handle packages (not added yet) with update available -------------
     # -----------------------------------------------------------------------------------------
 
@@ -844,7 +773,10 @@ def get_data_offline():
     # -------------------------------------------------
 
     # Get the latest installed packages list
-    my_list, my_dict = get_installed_packages_new()
+    if sysinfo_ops.os_type == 'ubuntu':
+        my_list, my_dict = manage_package_deb.get_installed_packages_deb()
+    else:
+        my_list, my_dict = get_installed_packages_new()
 
     # Get the info for curated packages
     try:
@@ -1130,7 +1062,6 @@ class Packages(object):
                     return get_data()
         else:
             return get_data_offline()
-
 
     def POST(self, **kwargs):
         retrieving_work, worker_result = manage_worker.do_work(
